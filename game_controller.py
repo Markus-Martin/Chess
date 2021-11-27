@@ -83,6 +83,7 @@ class GameController:
         Runs the game, specifying PLAY_MODE in constants will change whether it's run in PvP, PvAI, or AIvAI mode
 
         """
+        begin_time = time.time()
         # Only intialise pygame if we're player pve or pvp mode
         if c.PLAY_MODE <= 1 or c.RENDER_FOR_AI:
             # Start pygame
@@ -94,7 +95,8 @@ class GameController:
             # Render game
             self.render.draw(self.state)
         elif c.PLAY_MODE == 2:
-            print("Moves\tPieces remaining")
+            print("Moves\tPieces remaining\tTime taken")
+
 
         # Initially running
         running = True
@@ -103,7 +105,9 @@ class GameController:
         while running:
             # Print moves and pieces remaining in AIvAI
             if c.PLAY_MODE == 2:
-                print(self.total_half_moves, "\t", len(self.state.pieces), sep="")
+                end_time = (time.time() - begin_time) * 1000
+                print(self.total_half_moves, "\t", len(self.state.pieces), "\t", end_time, "ms", sep="")
+                begin_time = time.time()
                 time.sleep(c.AI_MOVE_DELAY)
 
             # Update possible moves and break loop if game over

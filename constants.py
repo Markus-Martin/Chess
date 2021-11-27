@@ -7,7 +7,7 @@ Stores various constants that can be adjusted for a different look/performance o
 PLAY_MODE = 2  # 0 - PvAI, 1 - PvP, 2 - AIvAI
 PLAYER_STARTS = True
 RENDER_FOR_AI = True  # Whether to render the game for AIvAI mode
-AI_MOVE_DELAY = 1  # Movement delay for the AI actions in seconds
+AI_MOVE_DELAY = 0  # Movement delay for the AI actions in seconds
 
 # Piece labels
 PAWN = "p"
