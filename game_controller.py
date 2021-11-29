@@ -3,9 +3,12 @@ import constants as c
 from chess_piece import Pawn, Knight, Bishop, Rook, Queen, King, new_location
 from game_state import GameState
 from renderer import Renderer
+from q_learn import QLearn
+from chess_ai_helper import AIChessHelper
 import random
 import math
 import time
+from PIL import Image
 
 """
 Start initial game state and get player inputs for moves. Perform moves and update renderer.
@@ -19,71 +22,49 @@ class GameController:
     """
 
     def __init__(self):
-        # Variables for how to play game
-        # Player vs Player?
-        # Player vs AI?
-        # AI vs AI?
+        # Make Q learning agent if that mode is selected
+        if c.AI_MODE == 1 or c.AI_MODE == 2:
+            # We must also ensure there's actually an AI playing before creating the agent
+            if c.PLAY_MODE == 0 or c.PLAY_MODE == 2:
+                self.agent = QLearn(c.Q_NAME, AIChessHelper)
+
+        # Choose the function each AI will pick it's moves from
+        if c.PLAY_MODE == 0 or c.PLAY_MODE == 2:
+            if c.AI_MODE == 1:
+                #                     White action selection function          Black action selection function
+                self.choose_action = {True: self.agent.select_action_training, False: self.agent.select_action_training}
+            else:
+                #                     White action selection function   Black action selection function
+                self.choose_action = {True: self.agent.get_best_action, False: self.agent.get_best_action}
 
         # Start game in initial state. Set up chess board according to rules and add pieces to arrays above
-        board = self.get_basic_board()
-        self.state = GameState(board, True)
+        self.state = self.get_init_state()
         self.render = None
         self.has_updated = False
         self.total_half_moves = 0
-        c.RENDER_FOR_AI = True
+        self.prev_state = None
+        self.prev_action = None
+
+        # Use heat maps to update the dictionaries in constant.py
+        self.interpret_heatmaps()
 
         # Begin game
         self.play_game()
 
-    def get_basic_board(self):
+    @staticmethod
+    def get_init_state():
         """
         Returns the basic initial state of a chess board with the pawns in a line and the special units behind them.
 
         """
-        board = {}
-        # Iterate along x axis
-        for x in range(1, 9):
-            # Add pawns to board
-            board.update({(x, 2): Pawn((x, 2), c.PLAYER_STARTS)})
-            board.update({(x, 7): Pawn((x, 7), not c.PLAYER_STARTS)})
-
-            # Add special pieces
-            dist_center = abs(x - 4.5)
-            if dist_center == 0.5:
-                # Special case of King/Queen
-                if x == 4:
-                    board.update({(x, 1): Queen((x, 1), c.PLAYER_STARTS)})
-                    board.update({(x, 8): Queen((x, 8), not c.PLAYER_STARTS)})
-                else:
-                    board.update({(x, 1): King((x, 1), c.PLAYER_STARTS)})
-                    board.update({(x, 8): King((x, 8), not c.PLAYER_STARTS)})
-                continue
-
-            # Non King/Queen
-            if dist_center == 3.5:
-                # Rook
-                piece = Rook
-            elif dist_center == 2.5:
-                # Knight
-                piece = Knight
-            elif dist_center == 1.5:
-                # Bishop
-                piece = Bishop
-            else:
-                piece = Pawn
-                print("Error in creating base board.")
-
-            board.update({(x, 1): piece((x, 1), c.PLAYER_STARTS)})
-            board.update({(x, 8): piece((x, 8), not c.PLAYER_STARTS)})
-
-        return board
+        return GameState.fen_to_state("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 
     def play_game(self):
         """
         Runs the game, specifying PLAY_MODE in constants will change whether it's run in PvP, PvAI, or AIvAI mode
 
         """
-        begin_time = time.time()
+
         # Only intialise pygame if we're player pve or pvp mode
         if c.PLAY_MODE <= 1 or c.RENDER_FOR_AI:
             # Start pygame
@@ -95,47 +76,85 @@ class GameController:
             # Render game
             self.render.draw(self.state)
         elif c.PLAY_MODE == 2:
-            print("Moves\tPieces remaining\tTime taken")
+            print("Episodes\tTime used\tTime Left")
 
+        # Basic stat tracking variables
+        t0 = time.time()
+        t = time.time()
+        episodes = 0
 
-        # Initially running
-        running = True
+        # Open writer for collecting data if the option is turned on
+        if c.SHOW_STATS:
+            stat_file = open("data.txt", "w")
 
-        # Main game loop
-        while running:
-            # Print moves and pieces remaining in AIvAI
-            if c.PLAY_MODE == 2:
-                end_time = (time.time() - begin_time) * 1000
-                print(self.total_half_moves, "\t", len(self.state.pieces), "\t", end_time, "ms", sep="")
-                begin_time = time.time()
-                time.sleep(c.AI_MOVE_DELAY)
+        # Repeat games until allocated time is over for AIvAI, other modes just run once
+        while c.PLAY_MODE == 2 and c.ALLOCATED_RUN_TIME > 0 and time.time() - t0 < c.ALLOCATED_RUN_TIME or episodes <= 0:
+            self.state = self.get_init_state()
+            self.has_updated = False
+            self.total_half_moves = 0
+            episodes += 1
 
-            # Update possible moves and break loop if game over
-            if not self.has_updated and self.update_game():
-                break
+            # Every 100 episodes print stats and update q table
+            if episodes % 100 == 0:
+                # Print episode number, time used for those past 1000 episodes and the time left
+                print(episodes, "\t", round((time.time() - t) / 60, 3), "min", "\t", round((c.ALLOCATED_RUN_TIME - (time.time() - t0)) / 60, 3), "min", sep="")
 
-            # Computer's turn if it's not player's turn in PvAI or if the mode is AIvAI
-            if (c.PLAY_MODE == 0 and c.PLAYER_STARTS is not self.state.turn) or c.PLAY_MODE == 2:
-                self.computer_action()
+                # Update q table and t (time since starting the last 1000s episode)
+                t = time.time()
+                if c.AI_MODE == 1 or c.AI_MODE == 2:
+                    self.agent.save_q_table()
 
-            # Only allow the player side to run if the play mode is PvAI or PvP
-            if c.PLAY_MODE <= 1 or c.RENDER_FOR_AI:
-                # Go through each GUI event
-                for event in pygame.event.get():
-                    # What to do when quitting
-                    if event.type == pygame.QUIT:
-                        running = False
+            # Initially running
+            running = True
 
-                    # Left mouse button down event
-                    if event.type == pygame.MOUSEBUTTONDOWN:
-                        if event.button == 1:
-                            # As long as it's the player's turn in PvAI or anyone's turn in PvP, perform player action
-                            if (c.PLAY_MODE == 0 and c.PLAYER_STARTS == self.state.turn) or c.PLAY_MODE == 1:
-                                self.player_action()
+            # Main game loop
+            while running:
+                # Print moves and pieces remaining in AIvAI
+                if c.PLAY_MODE == 2 and c.RENDER_FOR_AI:
+                    time.sleep(c.AI_MOVE_DELAY)
 
-            # Render if PvP or PvAI
-            if c.PLAY_MODE <= 1 or c.RENDER_FOR_AI:
-                self.render.draw(self.state)
+                # Update possible moves and break loop if game over
+                if not self.has_updated and self.update_game():
+                    break
+
+                # Break the loop also if the AI exceeds 1000 half steps
+                if self.total_half_moves >= 1000:
+                    break
+
+                # Computer's turn if it's not player's turn in PvAI or if the mode is AIvAI
+                if (c.PLAY_MODE == 0 and c.PLAYER_STARTS is not self.state.turn) or c.PLAY_MODE == 2:
+                    self.computer_action()
+
+                # Only allow the player side to run if the play mode is PvAI or PvP
+                if c.PLAY_MODE <= 1 or c.RENDER_FOR_AI:
+                    # Go through each GUI event
+                    for event in pygame.event.get():
+                        # What to do when quitting
+                        if event.type == pygame.QUIT:
+                            running = False
+
+                        # Left mouse button down event
+                        if event.type == pygame.MOUSEBUTTONDOWN:
+                            if event.button == 1:
+                                # As long as it's the player's turn in PvAI or anyone's turn in PvP, perform player action
+                                if (c.PLAY_MODE == 0 and c.PLAYER_STARTS == self.state.turn) or c.PLAY_MODE == 1:
+                                    self.player_action()
+
+                # Render if PvP or PvAI
+                if c.PLAY_MODE <= 1 or c.RENDER_FOR_AI:
+                    self.render.draw(self.state)
+
+            # Store stats when option is turned on
+            if c.SHOW_STATS:
+                stat_file.write(str(episodes) + "\t" + str(self.total_half_moves) + "\n")
+
+        # Close the writer
+        if c.SHOW_STATS:
+            stat_file.close()
+
+        # Save Q table
+        if (c.AI_MODE == 1 or c.AI_MODE == 2) and c.PLAY_MODE != 1:
+            self.agent.save_q_table()
 
         # If game over, just display the board
         if c.PLAY_MODE <= 1 or c.RENDER_FOR_AI:
@@ -192,7 +211,7 @@ class GameController:
                 # Special case of pawn promotion
                 if self.state.selected_piece.icon == c.PAWN:
                     new_loc = new_location(self.state.selected_piece.location, offset)
-                    if new_loc[1] == 8 or new_loc[1] == 1:
+                    if (new_loc[1] == 8 or new_loc[1] == 1) and (*offset, c.QUEEN) in self.state.selected_piece.move_list:
                         # Force the player to choose knight or queen
                         self.state.performing_promotion = True
                         self.state.promotion_move = offset
@@ -208,7 +227,6 @@ class GameController:
                         self.state = selected.move(self.state, offset, pawn_promotion)
                     self.state.performing_promotion = False
                     self.state.promotion_move = None
-                    self.total_half_moves += 1
 
     def computer_action(self):
         """
@@ -218,48 +236,63 @@ class GameController:
         # Reset highlighted piece
         self.state.selected_piece = None
 
-        # For now, perform a random move
-        actions = self.get_action_space(self.state.turn)
+        # Get all possible actions
+        actions = self.state.get_action_space(self.state.turn)
 
         # Ensure list isn't empty
-        if len(actions) > 0:
-            chosen_action = random.choice(actions)
-        else:
+        if len(actions) == 0:
             print("Computer in check mate or stale mate")
             return
+
+        if c.AI_MODE == 1 or c.AI_MODE == 2:
+            # Q-learning (learning phase) or (training phase)
+            chosen_action = self.choose_action[self.state.turn](self.state, actions)
+        else:
+            # Random mode
+            chosen_action = random.choice(actions)
+
+        # Store previous state and state from last turn of the current colour
+        last_turn_state = None
+        if self.prev_state is not None:
+            last_turn_state = self.prev_state
+        self.prev_state = self.state
 
         piece = chosen_action[0]
         offset = chosen_action[1]
         # Action is pawn promotion
         if len(offset) >= 3:
+            # Update state with promotion
             promotion = offset[2]
             offset = (offset[0], offset[1])
             self.state = piece.move(self.state, offset, promotion)
-            return
+        else:
+            # Update state
+            self.state = piece.move(self.state, offset)
 
-        self.state = piece.move(self.state, offset)
         self.has_updated = False
         self.total_half_moves += 1
 
-    def get_action_space(self, colour: bool) -> list:
-        """
-        Gets the full action space for the given colour.
+        # Update num_moves and num_actions
+        if c.AI_MODE == 1 or c.AI_MODE == 2:
+            # Increment the states visited and actions performed in that state if we're using ucb
+            if self.agent.exploration_strategy == 1:
+                action_q = AIChessHelper.convert_actions(chosen_action)
+                state_q = AIChessHelper.convert_state(self.state)
+                self.agent.num_moves[state_q] = self.agent.num_moves.get(state_q, 0) + 1
+                self.agent.num_actions[(state_q, action_q)] = self.agent.num_actions.get((state_q, action_q), 0) + 1
 
-        :param colour: colour of the side we want to get the action space of
-        :return: the action space
-        """
-        # Action space list
-        actions = []
+        # Update q values for PvAI and AIvAI when it's been a full cycle back to the computer's turn
+        if (c.AI_MODE == 1 or c.AI_MODE == 2) and last_turn_state is not None:
+            # Get actions for next move
+            actions = self.state.get_action_space(self.state.turn)
 
-        # Cycle through all pieces
-        for piece in self.state.pieces:
-            # Only include pieces of the appropriate colour
-            if piece.colour == colour:
-                # Loop through all possible moves
-                for offset in piece.move_list:
-                    actions.append((piece, offset))
+            # Use everything to update q values. AI knows action from 2 half turns ago caused this current state because
+            # it has to account for the other colour playing in between. Thus, we use 2 turns ago state and the previous
+            # action that got us to the previous state.
+            self.agent.q_update(last_turn_state, self.prev_action, self.state, actions)
 
-        return actions
+        # Update previous action
+        self.prev_action = chosen_action
 
     def update_game(self) -> bool:
         """
@@ -277,13 +310,10 @@ class GameController:
 
         # Check win/loss/stalemate conditions
         if self.state.in_check_mate(True):
-            print("Black Wins!")
             return True
         elif self.state.in_check_mate(False):
-            print("White Wins!")
             return True
-        elif len(self.get_action_space(self.state.turn)) == 0 or len(self.state.pieces) == 2:
-            print("Stalemate")
+        elif len(self.state.get_action_space(self.state.turn)) == 0 or len(self.state.pieces) == 2:
             return True
 
         return False
@@ -301,3 +331,26 @@ class GameController:
                 if event.type == pygame.QUIT:
                     running = False
             self.render.draw(self.state)
+
+    @staticmethod
+    def interpret_heatmaps():
+        """
+        Interprets the heat maps for the strength of a piece's position and updates them as dictionaries in
+        constants.py.
+
+        """
+        # Iterate through each type of piece
+        for icon in c.PIECE_LIST:
+            # Access map rgb values
+            map_name = c.HEATMAP_FILE[icon]
+            image = Image.open(map_name)
+            rgb = image.load()
+
+            # Iterate through each x, y of map
+            for x in range(0, 8):
+                for y in range(0, 8):
+                    # Get the numerical strength of this position
+                    strength = sum(rgb[x, y]) / 3 / 255
+
+                    # Place it into dictionary
+                    c.HEATMAPS[icon].update({(x + 1, y + 1): strength})

@@ -2,20 +2,40 @@
 Stores various constants that can be adjusted for a different look/performance of the game.
 
 """
+# Rates of RL progress is about 2.5 million state-action pairs per hour. And total states to explore:
+# Param1 * Param2 * ... * Action Space * Accuracy (Larger accuracy -> better q values)
 
 # Options
-PLAY_MODE = 2  # 0 - PvAI, 1 - PvP, 2 - AIvAI
-PLAYER_STARTS = True
-RENDER_FOR_AI = True  # Whether to render the game for AIvAI mode
+PLAY_MODE = 0  # 0 - PvAI, 1 - PvP, 2 - AIvAI
+PLAYER_STARTS = True  # The player's colour
+RENDER_FOR_AI = False  # Whether to render the game for AIvAI mode
 AI_MOVE_DELAY = 0  # Movement delay for the AI actions in seconds
+AI_MODE = 1  # 0 - Random Actions, 1 - QLearn (learning), 2 - QLearn (playing)
+ALLOCATED_RUN_TIME = 1 * 60 * 60  # How long the program is allowed to run for (0 seconds means only do 1 episode)
+SHOW_STATS = True  # Show statistics like game length as func of episodes
+Q_NAME = "q_table"  # Name of the file that the q table is saved into
+STATE_SIZE = 10**6
+
+# AI State space representation:
+# 0 - Brute force method that doesn't attempt to capture any features in particular - just converts FEN to number
+# 1 - Just represented by counting the number of squares that are being controlled
+STATE_TYPE = 0
+
+# Reward options
+LOSE_PENALTY = -1000
+WIN_REWARD = 1000
+STALEMATE_PENALTY = 0
+MOVE_COST = -1
 
 # Piece labels
-PAWN = "p"
+PAWN = "P"
 KNIGHT = "N"
 ROOK = "R"
 BISHOP = "B"
 QUEEN = "Q"
 KING = "K"
+
+PIECE_LIST = [PAWN, KNIGHT, ROOK, BISHOP, QUEEN, KING]
 
 # Piece values
 PIECE_VALUES = {PAWN: 1, KNIGHT: 3, BISHOP: 3, ROOK: 5, QUEEN: 9, KING: 0}
@@ -42,6 +62,23 @@ IMAGES = {
     BISHOP: "images2/bishop",
     QUEEN: "images2/queen",
     KING: "images2/king"
+}
+HEATMAP_FILE = {
+    PAWN: "heatmaps/pawn_map.png",
+    KNIGHT: "heatmaps/knight_map.png",
+    ROOK: "heatmaps/rook_map.png",
+    BISHOP: "heatmaps/bishop_map.png",
+    QUEEN: "heatmaps/queen_map.png",
+    KING: "heatmaps/king_map.png"
+}
+
+HEATMAPS = {
+    PAWN: {},
+    KNIGHT: {},
+    ROOK: {},
+    BISHOP: {},
+    QUEEN: {},
+    KING: {}
 }
 
 

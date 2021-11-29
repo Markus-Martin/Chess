@@ -417,12 +417,14 @@ class Bishop(ChessPiece):
             return False
 
         # Get direction from the sign of the offset
-        direction1 = round(actual_offset[0] / abs(actual_offset[0]))
-        direction2 = round(actual_offset[1] / abs(actual_offset[1]))
+        direction = [0, 0]
+        for i in range(2):
+            if actual_offset[i] != 0:
+                direction[i] = round(actual_offset[i] / abs(actual_offset[i]))
 
         # Iterate through possible points until the actual offset and ensure line of sight is there
         for distance in range(1, abs(actual_offset[0])):
-            offset = (direction1 * distance, direction2 * distance)
+            offset = (direction[0] * distance, direction[1] * distance)
 
             # Calculate the new location
             new_loc = new_location(self.location, offset)
@@ -523,6 +525,7 @@ class King(ChessPiece):
         super().__init__(location, colour)
         self.value = c.PIECE_VALUES[c.KING]
         self.icon = c.KING
+        self.allies = 0
 
     def has_sight(self, state: GameState, location: Tuple[int, int]) -> bool:
         """
@@ -551,9 +554,12 @@ class King(ChessPiece):
         moves = []
 
         # Iterate through every cartesian product of (-1, 0, 1) of length 2 excluding (0, 0)
+        self.allies = 0
         for offset in list(it.product((-1, 0, 1), (-1, 0, 1))):
             if offset == (0, 0):
                 continue
+            if self.check_basic(state, offset) == -1:
+                self.allies += 1
             if self.check_basic(state, offset) <= 0:
                 continue
 
@@ -566,7 +572,7 @@ class King(ChessPiece):
         # Test offset passes basic check and king can castle
         if self.castling_condition(state, offset) == 1 and self.moves_taken == 0 and (-1, 0) in moves:
             # Also check (-3, 0) doesn't have a piece (check is allowed for this square). Make sure king isn't in check
-            if self.check_basic(state, (-3, 0)) >= 0 and self.check_basic(state, (0, 0)) != 0:
+            if self.check_basic(state, (-3, 0)) >= 0 and not state.in_check(self.colour):
                 # Finally, test if the rook can castle
                 rook = state.piece_at(new_location(self.location, (-4, 0)))
                 if rook is not None and rook.moves_taken == 0:
@@ -577,7 +583,7 @@ class King(ChessPiece):
         # Test offset passes basic check and king can castle
         if self.castling_condition(state, offset) == 1 and self.moves_taken == 0 and (1, 0) in moves:
             # Make sure king isn't in check
-            if self.check_basic(state, (0, 0)) != 0:
+            if not state.in_check(self.colour):
                 # Finally, test if the rook can castle
                 rook = state.piece_at(new_location(self.location, (3, 0)))
                 if rook is not None and rook.moves_taken == 0:
