@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import random
 import math
 
@@ -164,6 +165,10 @@ class QLearn:
         :param actions: a list of all possible actions in this state
         :return: the best action according to the Q table
         """
+
+        if actions is None or len(actions) == 0:
+            return None
+
         # Transform the state into the q-table readable format
         state = self.helper_class.convert_state(game_state)
 
@@ -181,12 +186,16 @@ class QLearn:
             for action in actions_q:
                 i += 1
                 # Default q value for unexplored state action pair is 0
-                new_q = self.q_table.get((state, action), 0)
+                new_q = self.q_table.get((state, action), None)
 
-                if new_q > q_val:
+                if new_q is not None and new_q > q_val:
                     # Extract new q value and action. Action taken from the game action list rather than q table version
                     q_val = new_q
                     best_action = actions[i]
+            # If we couldn't find a best action, then the given actions mustn't be explored. So choose random one
+            if best_action is None:
+                best_action = random.choice(actions)
+
         else:
             # In the case of one option
             best_action = actions

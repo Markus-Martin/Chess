@@ -20,16 +20,50 @@ class AIChessHelper:
         if c.STATE_TYPE != 0:
             # Cycle through each piece and extract the parameter values from them.
             king = None
-            num_squares = 0
 
-            # Evaluate value from piece's values and heat map of positioning
-            value = round(state.evaluate_position(state.turn))
+            # Calculate control values
+            control_squares = {}
+            for x in range(1, 9):
+                for y in range(1, 9):
+                    square = (x, y)  # Target square we're calculating the control value for
+                    target_value = 0  # Number of friendly pieces targeting this square minus enemy pieces
+                    for piece in state.pieces:
+                        # Because we're iterating through each piece anyway, we may as well find king now for later use
+                        if king is None and piece.colour == state.turn:
+                            if piece.icon == c.KING:
+                                king = piece
 
-            for piece in state.pieces:
-                if piece.colour == state.turn:
-                    if piece.icon == c.KING:
-                        king = piece
+                        # +1 if friendly, -1 if enemy
+                        direction = 1 if piece.colour == state.turn else -1
 
+                        # Add this piece to the counter if it has sight on the location
+                        if piece.has_sight(state, square):
+                            target_value += direction
+
+                    # Store the final result in control squares. If > 0, set it to 1, < 0 set to -1, = 0 set to 0
+                    if target_value > 0:
+                        control_squares.update({square: 1})
+                    elif target_value < 0:
+                        control_squares.update({square: -1})
+                    else:
+                        control_squares.update({square: 0})
+
+            # Now use the control squares to find out who controls each 2x4 area on the board starting bottom left
+            control_blocks = []
+            for squares in c.CONTROL_SQUARES:
+                cumulative_value = 0
+                for square in squares:
+                    cumulative_value += control_squares.get(square, 0)
+
+                # Set control block values appropriately depending on which side dominates more
+                if cumulative_value < 0:
+                    control_blocks.append(-1)
+                elif cumulative_value > 0:
+                    control_blocks.append(1)
+                else:
+                    control_blocks.append(0)
+
+            # King safety calculations
             # Use king to update parameter 3
             if king.allies == 0:
                 king_safety = 0
@@ -38,6 +72,16 @@ class AIChessHelper:
             else:
                 king_safety = 2
 
+            # Time value calculation
+            num_pieces = len(state.pieces)
+            if num_pieces >= 24:
+                time_value = 0
+            elif num_pieces >= 14:
+                time_value = 1
+            else:
+                time_value = 2
+
+        # Now output state depending on which state type we're using
         if c.STATE_TYPE == 0:
             # For this state representation, we will brute force it without trying to capture any features
             # Get FEN representation of state
@@ -48,9 +92,14 @@ class AIChessHelper:
 
             return val
         elif c.STATE_TYPE == 1:
-            return num_squares
+            return tuple(control_blocks)
         else:
-            return value, num_squares, king_safety
+            # State represented by:
+            # - Control values over 2x4 areas (-1 neither controls, 0 enemy controls, 1 agent controls)
+            # - King safety (0 unsafe: not allies, 1 ok: 2 allies, safe: 3 allies)
+            # - Time (0 early game, 1 mid game, 2 late game)
+            # State space: 78,732 (ok size; preferably smaller)
+            return tuple(control_blocks), king_safety, time_value
 
     @staticmethod
     def state_to_text(state_tuple):
@@ -82,7 +131,17 @@ class AIChessHelper:
         # Split the text into its components
         if c.STATE_TYPE != 0:
             state_text = text.split(",")
-            state = (int(x) for x in state_text)
+            new_text = state_text
+            # Remove non-digit characters
+            for i in range(0, len(state_text)):
+                if len(state_text[i]) > 1:
+                    j = -1
+                    for elem in state_text[i]:
+                        j += 1
+                        if not elem.isdigit():
+                            new_text[i] = state_text[i].replace(elem, "")
+
+            state = (int(x) for x in new_text)
         else:
             # Accounting for single element state spaces
             state = int(text)
@@ -151,15 +210,15 @@ class AIChessHelper:
                 offset = action[1]
 
                 # By the time the actions come through, we've already updated piece positions so we revert the change
-                location = (piece.location[0] - offset[0], piece.location[1] - offset[1])
-                actions_q.append((piece.icon, location, offset))
+                # location = (piece.location[0] - offset[0], piece.location[1] - offset[1])
+                actions_q.append((piece.icon, piece.location, offset))
         else:
             piece = actions[0]
             offset = actions[1]
 
             # By the time the actions come through, we've already updated piece positions so we revert the change
-            location = (piece.location[0] - offset[0], piece.location[1] - offset[1])
-            return piece.icon, location, offset
+            # location = (piece.location[0] - offset[0], piece.location[1] - offset[1])
+            return piece.icon, piece.location, offset
         return actions_q
 
     @staticmethod
@@ -174,6 +233,15 @@ class AIChessHelper:
         """
         # Get the colour of the position we're evaluating
         turn = prev_game_state.turn
+
+        # On AI Mode 3, if we're on the last move, we need to set the reward to whether win or loss
+        if c.AI_MODE == 3 and game_state.final_turn:
+            if c.GAME_OUTCOME == turn:
+                return c.WIN_REWARD
+            elif c.GAME_OUTCOME == -1:
+                return c.STALEMATE_PENALTY
+            elif c.GAME_OUTCOME != turn:
+                return c.LOSE_PENALTY
 
         # Return the difference between the board evaluations from the current to previous board
         return c.MOVE_COST + game_state.evaluate_position(turn) - prev_game_state.evaluate_position(turn)

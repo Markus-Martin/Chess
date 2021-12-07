@@ -24,6 +24,31 @@ class ChessPiece:
         self.icon = "X"
         self.moves_taken = 0
 
+    def __repr__(self):
+        # Colour of piece
+        col = "White" if self.colour else "Black"
+
+        # Name of piece
+        if self.icon == c.PAWN:
+            name = "Pawn"
+        elif self.icon == c.KNIGHT:
+            name = "Knight"
+        elif self.icon == c.BISHOP:
+            name = "Bishop"
+        elif self.icon == c.ROOK:
+            name = "Rook"
+        elif self.icon == c.QUEEN:
+            name = "Queen"
+        elif self.icon == c.KING:
+            name = "King"
+        else:
+            name = "None"
+
+        # Location of piece
+        location = "(" + str(self.location[0]) + ", " + str(self.location[1]) + ")"
+
+        return " ".join([col, name, location])
+
     def check_basic(self, state: GameState, offset: Tuple[int, int]) -> int:
         """
         Does a basic check on the given move to ensure it doesn't put pieces out of bounds or on friendly pieces. It
@@ -81,7 +106,8 @@ class ChessPiece:
         """
         # Check if the move is possible, and if so update location then return new state
         # Details on the end of this if statement are for pawn promotion moves
-        if offset in self.move_list or (pawn_promotion is not None and (*offset, pawn_promotion) in self.move_list):
+        # It's an unnecessary check if the AI mode is 3
+        if c.AI_MODE == 3 or offset in self.move_list or (pawn_promotion is not None and (*offset, pawn_promotion) in self.move_list):
             # Piece we're taking
             target_loc = new_location(self.location, offset)
             target_piece = state.piece_at(target_loc)
@@ -92,21 +118,25 @@ class ChessPiece:
                     new_piece = Queen(self.location, self.colour)
                 elif pawn_promotion == c.KNIGHT:
                     new_piece = Knight(self.location, self.colour)
+                elif pawn_promotion == c.ROOK:
+                    new_piece = Rook(self.location, self.colour)
+                elif pawn_promotion == c.BISHOP:
+                    new_piece = Bishop(self.location, self.colour)
                 else:
                     new_piece = self
-                    print("Error: chosen pawn promotion wasn't Queen or Knight")
+                    print("Error: chosen pawn promotion wasn't valid")
 
                 new_piece.moves_taken = self.moves_taken
                 state.board_state.update({self.location: new_piece})
 
             # Update positions
-            new_state = state.get_next_state(self.location, offset)
+            new_state = state.get_next_state(self.location, offset, pawn_promotion)
 
             # In case of a piece taking a vulnerable pawn we must remove it
             if self.icon == c.PAWN and abs(offset[0]) > 0 and target_piece is None:
-                    actual_target = new_location(self.location, (offset[0], 0))
-                    new_state.pieces.remove(new_state.piece_at(actual_target))
-                    new_state.board_state.pop(actual_target)
+                actual_target = new_location(self.location, (offset[0], 0))
+                removed = new_state.board_state.pop(actual_target)
+                new_state.pieces.remove(removed)
 
             # In case of castling
             if self.icon == c.KING and abs(offset[0]) == 2 and target_piece is None:

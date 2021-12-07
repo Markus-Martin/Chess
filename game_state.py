@@ -39,11 +39,15 @@ class GameState:
         self.pieces = list(self.board_state.values())
         self.performing_promotion = False
         self.promotion_move = None
+        self.final_turn = False  # True when this state has performed its final turn
 
         count = 0
         for piece in self.pieces:
             if piece.icon == c.KING:
                 count += 1
+
+    def __repr__(self):
+        return self.text_board()
 
     def get_board_state(self):
         """
@@ -59,7 +63,7 @@ class GameState:
         :param location: location where we want to find the piece at
         :return: the piece located at location
         """
-        return self.board_state.get(location)
+        return self.board_state.get(location, None)
 
     def get_next_state(self, location: Tuple[int, int], offset: Tuple[int, int], pawn_promotion: str = None) -> GameState:
         """
@@ -73,19 +77,14 @@ class GameState:
         """
         new_board = self.board_state.copy()
 
-        # Remove piece from board to be moved later (picking piece up to move it)
+        # Debugging -> if key error, show board
         if new_board.get(location, None) is None:
-            GameState(new_board, not self.turn).show_text_board()
+            print(self)
+
+        # Remove piece from board to be moved later (picking piece up to move it)
         piece = new_board.pop(location)
 
         new_loc = new_location(location, offset)
-
-        # In case of pawn promotion, we must change piece
-        if pawn_promotion is not None:
-            if pawn_promotion == c.QUEEN:
-                new_piece = chess_piece.Queen(piece.location, piece.colour)
-                new_piece.moves_taken = piece.moves_taken
-                piece = new_piece
 
         # Add piece to new location
         new_board.update({new_loc: piece})
@@ -156,10 +155,6 @@ class GameState:
         """
         # Action space list
         actions = []
-
-        for piece in self.pieces:
-            if piece.icon == c.KING and piece.colour is not colour:
-                king = piece
 
         # Cycle through all pieces
         for piece in self.pieces:
@@ -390,13 +385,13 @@ class GameState:
         # Create the game state and return  it
         return GameState(board_state, True if turn == "w" else False)
 
-    def show_text_board(self):
+    def text_board(self):
         """
         Prints the current state to the terminal as text.
 
         """
         # Print top of map
-        print("+---+---+---+---+---+---+---+---+")
+        board_repr = "+---+---+---+---+---+---+---+---+\n"
         for y in range(8, 0, -1):
             line = "+ "
             for x in range(1, 9):
@@ -417,5 +412,7 @@ class GameState:
                 line += " + "
 
             # Print the line and the break between above and below
-            print(line)
-            print("+---+---+---+---+---+---+---+---+")
+            board_repr += line + "\n"
+            board_repr += "+---+---+---+---+---+---+---+---+\n"
+
+        return board_repr
