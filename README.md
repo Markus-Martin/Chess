@@ -2,7 +2,8 @@
 A python version of Chess that can run with players controlling the moves or AI's.
 
 ## How does it work?
-Whenever the program is run in AIvAI mode or PvAI mode, the agent is learning and this is automatically saved before the program ends. The information is also automatically loaded whenever the program is run. For best results, the AI should be trained from the game database then test it with PvAI mode. To reset whatever the AI has learned, the files that hold information should be deleted (they will be titled whatever the SAVE_NAME option is set to).
+Whenever the program is run in AIvAI mode or PvAI mode, the agent is learning and this is automatically saved before the program ends. The information is also automatically loaded whenever the program is run. For best results, the AI should be trained from the game database then test it with PvAI mode. To reset whatever the AI has learned, the files that hold information should be deleted (they will be titled whatever the SAVE_NAME option is set to).  
+Note that the game database cannot be uploaded here due to its large size of 3GB; however, it was obtained from http://caissabase.co.uk/ (which was converted to a .pgn file).
 
 ## Options
 The options are located in the constants file under the heading 'options'. 
@@ -41,3 +42,12 @@ This option is only used when in the neural network isn't being used. It decides
 0 - Brute force method that doesn't attempt to capture any features in particular - just converts the chess board FEN string to a number  
 1 - Represented by controlled blocks of squares. In particular, a control value of (0 neither controls, 1 agent controls, -1 enemy controls) are set for 2x4 blocks around the chess board.  
 2 - Incorporates controlled squares, time frame (early, mid, late) and king safety  
+
+## References
+Much of the neural network was made using Dr. Phil's video as reference: https://www.youtube.com/watch?v=wc-FxNENg9U
+### Dependencies
+The Chess game uses the follow python libraries:  
+pygame - used to render the game  
+numpy - used in developing the neural network  
+torch - used in developing the neural network  
+chess - used to interpret pgn files
