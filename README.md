@@ -44,7 +44,8 @@ This option is only used when in the neural network isn't being used. It decides
 2 - Incorporates controlled squares, time frame (early, mid, late) and king safety  
 
 ## References
-Much of the neural network was made using Dr. Phil's video as reference: https://www.youtube.com/watch?v=wc-FxNENg9U
+Much of the neural network was made using Dr. Phil's video as reference: https://www.youtube.com/watch?v=wc-FxNENg9U.  
+The banner was made with https://www.canva.com/. Finally, it's difficult to find where the images originated (as they are copied everywhere) from but the chess pieces were obtained from free clipart websites.
 ### Dependencies
 The Chess game uses the follow python libraries:  
 pygame - used to render the game  
