@@ -28,7 +28,10 @@ Whether to use the neural network (Deep Reinforcement Learning instead of Reinfo
 ### ALLOCATED_RUN_TIME
 How long the program is allowed to run for (0 seconds means do only 1 episode). Note that the program will save every 100 episodes regardless of this parameter.
 ### SHOW_STATS
-Whether to track and store statistics like game length in a text file for later reading.
+Whether to track and store statistics on learning progress. The format is:  
+Episode, Number of half moves, 1-step reward, 2-step reward, Percent of rewards better than just the move cost  
+  
+To elaborate, the 1-step and 2-step rewards take the average of the sigmoid of rewards in each episode. So, the best score approaches 1. Then the 1-step just means the immediate reward while 2-step refers to the reward after the opponent has taken their turn too. On 1-step reward, the lowest score approaches expit(-1) because the move cost is -1 and you cannot really get worse than moving without gaining anything in 1-step rewards.
 ### SAVE_NAME
 Name of the file that the information for AI is saved into
 ### STATE_SIZE
