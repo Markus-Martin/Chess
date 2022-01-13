@@ -1,6 +1,7 @@
 from __future__ import annotations
 import chess_piece
 import constants as c
+from chess_exceptions import MissingPieceError
 from typing import Tuple
 import time
 
@@ -49,13 +50,6 @@ class GameState:
     def __repr__(self):
         return self.text_board()
 
-    def get_board_state(self):
-        """
-        Returns the board state.
-
-        """
-        return self.board_state
-
     def piece_at(self, location: Tuple[int, int]) -> chess_piece.ChessPiece:
         """
         Gets the piece at the given location.
@@ -77,9 +71,9 @@ class GameState:
         """
         new_board = self.board_state.copy()
 
-        # Debugging -> if key error, show board
-        if new_board.get(location, None) is None:
-            print(self)
+        # Raise error when there is no piece to move
+        if self.piece_at(location) is None:
+            raise MissingPieceError(self, location)
 
         # Remove piece from board to be moved later (picking piece up to move it)
         piece = new_board.pop(location)
@@ -393,7 +387,7 @@ class GameState:
         # Print top of map
         board_repr = "+---+---+---+---+---+---+---+---+\n"
         for y in range(8, 0, -1):
-            line = "+ "
+            line = "| "
             for x in range(1, 9):
                 # Get the piece in the square
                 piece = self.board_state.get((x, y), None)
@@ -409,7 +403,7 @@ class GameState:
                     line += " "
 
                 # Add the end part to the line
-                line += " + "
+                line += " | "
 
             # Print the line and the break between above and below
             board_repr += line + "\n"

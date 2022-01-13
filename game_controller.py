@@ -6,10 +6,13 @@ from renderer import Renderer
 from q_learn import QLearn
 from chess_ai_helper import AIChessHelper
 from chess_game_interpreter import ChessGameInterpreter
-from neural_network import DRLAgent
+from neural_network import DRLMainAction
 import random
 import math
 import time
+import copy
+import numpy as np
+from scipy.special import expit
 from PIL import Image
 
 """
@@ -24,12 +27,15 @@ class GameController:
     """
 
     def __init__(self):
+        # Variable to hold whether the agent tracks learning progress (when learning from actual games)
+        self.track_progress = False
+
         # Make Q learning agent if that mode is selected
         if c.AI_MODE == 1 or c.AI_MODE == 2 or c.AI_MODE == 3:
             # We must also ensure there's actually an AI playing before creating the agent
             if c.PLAY_MODE == 0 or c.PLAY_MODE == 2:
                 if c.USE_NEURAL_NETWORK:
-                    self.agent = DRLAgent(gamma=0.99, epsilon=1.0, lr=0.03, input_dims=[64], batch_size=1, n_actions=4096, eps_end=0.01)
+                    self.agent = DRLMainAction(gamma=0.99, epsilon=1.0, lr=0.03, input_dims=[64], batch_size=1, n_actions=141, eps_end=0.01)
                 else:
                     self.agent = QLearn(c.SAVE_NAME, AIChessHelper)
 
@@ -37,17 +43,23 @@ class GameController:
         if c.AI_MODE == 3:
             self.interpreter = ChessGameInterpreter(c.LEARN_FROM, c.ELO_RANGE)
 
+            # Track learning progress when we're showing stats
+            if c.SHOW_STATS:
+                self.track_progress = True
+
         # Choose the function each AI will pick it's moves from
         if c.PLAY_MODE == 0 or c.PLAY_MODE == 2:
             if c.USE_NEURAL_NETWORK and c.AI_MODE == 1:
                 self.choose_action = {True: self.agent.choose_action, False: self.agent.choose_action}
+            elif c.USE_NEURAL_NETWORK and c.AI_MODE == 2:
+                self.choose_action = {True: self.agent.get_best_action, False: self.agent.get_best_action}
             elif c.AI_MODE == 1:
                 #                     White action selection function          Black action selection function
                 self.choose_action = {True: self.agent.select_action_training, False: self.agent.select_action_training}
             elif c.AI_MODE == 2:
                 #                     White action selection function   Black action selection function
                 self.choose_action = {True: self.agent.get_best_action, False: self.agent.get_best_action}
-            else:
+            elif c.AI_MODE == 3:
                 #                     White action selection function          Black action selection function
                 self.choose_action = {True: self.interpreter.get_next_move, False: self.interpreter.get_next_move}
 
@@ -58,6 +70,7 @@ class GameController:
         self.total_half_moves = 0
         self.prev_state = None
         self.prev_action = None
+        self.game_stat = [[], []]
 
         # Use heat maps to update the dictionaries in constant.py
         self.interpret_heatmaps()
@@ -109,6 +122,16 @@ class GameController:
             self.has_updated = False
             self.total_half_moves = 0
             self.prev_state = None
+            self.game_stat = [[], []]
+
+            # Check learning progress by playing itself every 10 episodes. This only matters when learning from games
+            if c.USE_NEURAL_NETWORK:
+                if self.track_progress and episodes % 10 == 0:
+                    c.AI_MODE = 1
+                    self.choose_action = {True: self.agent.choose_action, False: self.agent.choose_action}
+                elif self.track_progress and episodes % 10 == 1:
+                    c.AI_MODE = 3
+                    self.choose_action = {True: self.interpreter.get_next_move, False: self.interpreter.get_next_move}
 
             # Increment episode
             episodes += 1
@@ -175,8 +198,14 @@ class GameController:
                     self.render.draw(self.state)
 
             # Store half move stats (when the options say to)
-            if c.SHOW_STATS:
-                stat_file.write(str(episodes) + "\t" + str(self.total_half_moves) + "\n")
+            if c.SHOW_STATS and c.AI_MODE != 3:
+                mean_1 = round(np.mean(expit(self.game_stat[0])), 3)  # One step reward
+                mean_2 = round(np.mean(expit(self.game_stat[1])), 3)  # Two step reward
+                # Percent of the one step rewards that are better than just the move cost
+                percent = round(sum(num > c.MOVE_COST for num in self.game_stat[0]) / len(self.game_stat[0]), 3)
+                stat_file.write(str(episodes) + "\t" + str(self.total_half_moves)
+                                + "\t" + str(mean_1) + "\t" + str(mean_2) + "\t" + str(percent) + "\n")
+                stat_file.flush()
 
         # ----------------------------------- Final updates ----------------------------------- #
         print(episodes, "\t", round((time.time() - t) / 60, 3), "min", "\t", round((c.ALLOCATED_RUN_TIME - (time.time() - t0)) / 60, 3), "min", sep="")
@@ -351,9 +380,6 @@ class GameController:
 
                 self.agent.q_update(last_turn_state, self.prev_action, self.state, actions)
 
-        # Update previous action
-        self.prev_action = chosen_action
-
         # If we're using AI Mode 3 and this is the final action, q update again but for just this action
         if c.AI_MODE == 3 and self.state.final_turn:
             if c.USE_NEURAL_NETWORK:
@@ -361,6 +387,21 @@ class GameController:
                 self.agent.learn()
             else:
                 self.agent.q_update(self.prev_state, chosen_action, self.state, None)
+
+        # Update previous action (piece has already been moved so we must revert move to get proper original position)
+        old_piece = copy.copy(chosen_action[0])
+        if c.AI_MODE != 3:
+            old_piece.location = (old_piece.location[0] - chosen_action[1][0], old_piece.location[1] - chosen_action[1][1])
+        self.prev_action = old_piece, chosen_action[1]
+
+        # Immediate reward of a move
+        if last_turn_state is not None:
+            immediate_reward = AIChessHelper.reward(self.prev_state, chosen_action, self.state)
+            two_move_reward = AIChessHelper.reward(last_turn_state, chosen_action, self.state)
+
+            # Print so we can track how well the AI is doing
+            self.game_stat[0].append(immediate_reward)
+            self.game_stat[1].append(two_move_reward)
 
     def update_game(self) -> bool:
         """
@@ -379,7 +420,7 @@ class GameController:
         # Check win/loss/stalemate conditions
         if self.state.in_check_mate(True):
             self.state.final_turn = True
-            if c.AI_MODE == 1 or c.AI_MODE == 2 or c.AI_MODE == 3:
+            if c.PLAY_MODE != 1 and (c.AI_MODE == 1 or c.AI_MODE == 2 or c.AI_MODE == 3):
                 if c.USE_NEURAL_NETWORK:
                     self.agent.store_transition(self.prev_state, self.prev_action, self.state, True)
                     self.agent.learn()
@@ -388,19 +429,21 @@ class GameController:
             return True
         elif self.state.in_check_mate(False):
             self.state.final_turn = True
-            if c.USE_NEURAL_NETWORK:
-                self.agent.store_transition(self.prev_state, self.prev_action, self.state, True)
-                self.agent.learn()
-            else:
-                self.agent.q_update(self.prev_state, self.prev_action, self.state, None)
+            if c.PLAY_MODE != 1 and (c.AI_MODE == 1 or c.AI_MODE == 2 or c.AI_MODE == 3):
+                if c.USE_NEURAL_NETWORK:
+                    self.agent.store_transition(self.prev_state, self.prev_action, self.state, True)
+                    self.agent.learn()
+                else:
+                    self.agent.q_update(self.prev_state, self.prev_action, self.state, None)
             return True
         elif len(self.state.get_action_space(self.state.turn)) == 0 or len(self.state.pieces) == 2:
             self.state.final_turn = True
-            if c.USE_NEURAL_NETWORK:
-                self.agent.store_transition(self.prev_state, self.prev_action, self.state, True)
-                self.agent.learn()
-            else:
-                self.agent.q_update(self.prev_state, self.prev_action, self.state, None)
+            if c.PLAY_MODE != 1 and (c.AI_MODE == 1 or c.AI_MODE == 2 or c.AI_MODE == 3):
+                if c.USE_NEURAL_NETWORK:
+                    self.agent.store_transition(self.prev_state, self.prev_action, self.state, True)
+                    self.agent.learn()
+                else:
+                    self.agent.q_update(self.prev_state, self.prev_action, self.state, None)
             return True
         return False
 

@@ -11,8 +11,9 @@ PLAYER_STARTS = True  # The player's colour
 RENDER_FOR_AI = False  # Whether to render the game for AIvAI mode
 AI_MOVE_DELAY = 0  # Movement delay for the AI actions in seconds
 USE_NEURAL_NETWORK = True  # Whether to use the neural network (DRL instead of RL)
+SAVE_FOR_TRAINING = False  # Whether to save neural network for further training. False for finished training mode
 AI_MODE = 3  # 0 - Random Actions, 1 - QLearn (learning), 2 - QLearn (playing), 3 - QLearn from provided games
-ALLOCATED_RUN_TIME = 10*60*60  # How long the program is allowed to run for (0 seconds means only do 1 episode)
+ALLOCATED_RUN_TIME = 60*60*8  # How long the program is allowed to run for (0 seconds means only do 1 episode)
 SHOW_STATS = True  # Show statistics like game length as func of episodes
 SAVE_NAME = "learned_info"  # Name of the file that the information for AI is saved into
 STATE_SIZE = 10**6  # Size of the state space (larger is more accurate but slower to learn)
@@ -28,7 +29,7 @@ STATE_TYPE = 2
 # Reward options
 LOSE_PENALTY = -50
 WIN_REWARD = 50
-STALEMATE_PENALTY = 0
+STALEMATE_PENALTY = -20
 MOVE_COST = -1
 
 # Piece labels

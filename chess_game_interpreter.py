@@ -22,7 +22,6 @@ class ChessGameInterpreter:
         game is finished being analysed and we need the next one.
 
         """
-
         # Reset moves
         self.move_number = 0
         self.move_list = []

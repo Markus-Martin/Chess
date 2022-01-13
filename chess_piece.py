@@ -350,6 +350,15 @@ class Rook(ChessPiece):
                         # Break for OOB and friendly
                         break
                     elif val == 0:
+                        # Also break and add move if we're landing on an enemy piece while in check
+                        # New location
+                        new_loc = new_location(self.location, offset)
+
+                        piece = state.piece_at(new_loc)
+
+                        if piece is not None and piece.colour is not self.colour:
+                            break
+
                         # Continue for if state is landing in check
                         continue
 
@@ -487,6 +496,15 @@ class Bishop(ChessPiece):
                         # Break for OOB and friendly
                         break
                     elif val == 0:
+                        # Also break and add move if we're landing on an enemy piece while in check
+                        # New location
+                        new_loc = new_location(self.location, offset)
+
+                        piece = state.piece_at(new_loc)
+
+                        if piece is not None and piece.colour is not self.colour:
+                            break
+
                         # Continue for if state is landing in check
                         continue
 
