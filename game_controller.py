@@ -112,7 +112,7 @@ class GameController:
 
         # Open writer for collecting data if the option is turned on
         if c.SHOW_STATS:
-            stat_file = open("data.txt", "w")
+            stat_file = open("data1.txt", "w")
 
         # ----------------------------------- Loop for episodes ----------------------------------- #
         # Repeat games until allocated time is over for AIvAI, other modes just run once
@@ -125,11 +125,11 @@ class GameController:
             self.game_stat = [[], []]
 
             # Check learning progress by playing itself every 10 episodes. This only matters when learning from games
-            if c.USE_NEURAL_NETWORK:
-                if self.track_progress and episodes % 10 == 0:
+            if c.USE_NEURAL_NETWORK and self.track_progress and c.PLAY_MODE != 1:
+                if episodes % 10 == 0:
                     c.AI_MODE = 1
                     self.choose_action = {True: self.agent.choose_action, False: self.agent.choose_action}
-                elif self.track_progress and episodes % 10 == 1:
+                elif episodes % 10 == 1:
                     c.AI_MODE = 3
                     self.choose_action = {True: self.interpreter.get_next_move, False: self.interpreter.get_next_move}
 

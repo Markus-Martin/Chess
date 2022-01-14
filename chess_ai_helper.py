@@ -244,4 +244,6 @@ class AIChessHelper:
                 return c.LOSE_PENALTY
 
         # Return the difference between the board evaluations from the current to previous board
-        return c.MOVE_COST + game_state.evaluate_position(turn) - prev_game_state.evaluate_position(turn)
+        reward = c.MOVE_COST + game_state.evaluate_position(turn) - prev_game_state.evaluate_position(turn)
+
+        return reward

@@ -135,6 +135,11 @@ class Renderer:
         # Draw the board
         self.draw_board()
 
+        # Draw board evaluation
+        font = pygame.font.SysFont('Comic Sans MS', 24)
+        text = font.render(str(round(state.evaluate_position(True), 2)), False, (0, 0, 0))
+        self.screen.blit(text, (c.BANNER_WIDTH - 80, c.BANNER_HEIGHT - 50))
+
         # Draw every piece
         if len(state.pieces) > 0:
             for piece in state.pieces:

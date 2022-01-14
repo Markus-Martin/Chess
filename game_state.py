@@ -175,13 +175,18 @@ class GameState:
 
         # Material advantage scaled by development factors from heat map
         material_score = 0
-        for piece in self.pieces:
+        for location in self.board_state.keys():
+            piece = self.board_state.get(location, None)
+
+            if piece is None:
+                print("Error in evaluate_position: piece missing")
+
             # Set strength depending on orientation of board
             if piece.colour == c.PLAYER_STARTS:
-                strength = c.HEATMAPS[piece.icon][piece.location]
+                strength = c.HEATMAPS[piece.icon][location]
             else:
                 # Adjust location to account for inverted heat map
-                adjusted_location = (piece.location[0], 9 - piece.location[1])
+                adjusted_location = (location[0], 9 - location[1])
                 strength = c.HEATMAPS[piece.icon][adjusted_location]
 
             # Add or subtract to the material score depending on colour
