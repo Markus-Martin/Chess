@@ -111,7 +111,7 @@ class DRLMainAction:
         self.new_state_memory = np.zeros((self.mem_size, *input_dims), dtype=np.float32)
         self.action_memory = np.zeros(self.mem_size, dtype=np.int32)
         self.reward_memory = np.zeros(self.mem_size, dtype=np.float32)
-        self.terminal_memory = np.zeros(self.mem_size, dtype=np.bool8)
+        self.terminal_memory = np.zeros(self.mem_size, dtype=np.bool)
 
         # Create the agent that chooses the piece when duplicate options appear. 64 possible location of pieces
         print("Loading data...")
@@ -730,7 +730,7 @@ class DRLPieceChooser:
         self.new_state_memory = np.zeros((self.mem_size, *input_dims), dtype=np.float32)
         self.location_memory = np.zeros(self.mem_size, dtype=np.int32)
         self.reward_memory = np.zeros(self.mem_size, dtype=np.float32)
-        self.terminal_memory = np.zeros(self.mem_size, dtype=np.bool8)
+        self.terminal_memory = np.zeros(self.mem_size, dtype=np.bool)
 
         # Load the already learnt information
         self.load()
