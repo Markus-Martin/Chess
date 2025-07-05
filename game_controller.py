@@ -326,7 +326,9 @@ class GameController:
         last_turn_state = None
         if self.prev_state is not None:
             last_turn_state = self.prev_state
-        self.prev_state = self.state
+        # Store a deep copy of the current state so future updates do not
+        # mutate the previous state used for learning.
+        self.prev_state = copy.deepcopy(self.state)
 
         piece = chosen_action[0]
         offset = chosen_action[1]
