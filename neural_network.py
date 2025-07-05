@@ -9,6 +9,7 @@ import chess_ai_helper
 import constants as c
 from game_state import GameState
 import time
+import matplotlib.pyplot as plt
 
 
 class DeepQNetwork(nn.Module):
@@ -96,6 +97,9 @@ class DRLMainAction:
         self.mem_size = max_mem_size
         self.batch_size = batch_size
         self.mem_counter = 0
+
+        # Track the loss throughout training for visualisation
+        self.loss_history = []
 
         # Set epsilon (random action chance) to 0 if the AI is in play mode (as opposed to learn mode)
         if c.AI_MODE == 2:
@@ -593,6 +597,9 @@ class DRLMainAction:
         loss.backward()
         self.Q_eval.optim.step()
 
+        # Store the loss so training progress can be analysed
+        self.loss_history.append(loss.item())
+
         # Update value of epsilon
         self.epsilon -= self.eps_dec if self.epsilon > self.eps_min else 0
 
@@ -674,6 +681,18 @@ class DRLMainAction:
                 # Close the file
                 file.close()
 
+    def plot_loss(self, filename="training_loss.png"):
+        """Saves a plot of the training loss."""
+        if len(self.loss_history) == 0:
+            return
+        plt.figure()
+        plt.plot(self.loss_history)
+        plt.title("Training Loss")
+        plt.xlabel("Training Step")
+        plt.ylabel("Loss")
+        plt.savefig(filename)
+        plt.close()
+
 
 class DRLPieceChooser:
     """
@@ -701,6 +720,9 @@ class DRLPieceChooser:
         self.mem_size = max_mem_size
         self.batch_size = batch_size
         self.mem_counter = 0
+
+        # Track the loss throughout training for visualisation
+        self.loss_history = []
 
         self.Q_eval = DeepQNetwork(self.lr, input_dims, fc1_dims=64, fc2_dims=64, n_actions=n_actions)
 
@@ -919,6 +941,9 @@ class DRLPieceChooser:
         loss.backward()
         self.Q_eval.optim.step()
 
+        # Store the loss so training progress can be analysed
+        self.loss_history.append(loss.item())
+
         # Update value of epsilon
         self.epsilon -= self.eps_dec if self.epsilon > self.eps_min else 0
 
@@ -987,3 +1012,15 @@ class DRLPieceChooser:
 
                 # Close the file
                 file.close()
+
+    def plot_loss(self, filename="training_loss_piece_chooser.png"):
+        """Saves a plot of the training loss for the piece chooser."""
+        if len(self.loss_history) == 0:
+            return
+        plt.figure()
+        plt.plot(self.loss_history)
+        plt.title("Piece Chooser Training Loss")
+        plt.xlabel("Training Step")
+        plt.ylabel("Loss")
+        plt.savefig(filename)
+        plt.close()
