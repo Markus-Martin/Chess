@@ -35,7 +35,7 @@ class GameController:
             # We must also ensure there's actually an AI playing before creating the agent
             if c.PLAY_MODE == 0 or c.PLAY_MODE == 2:
                 if c.USE_NEURAL_NETWORK:
-                    self.agent = DRLMainAction(gamma=0.99, epsilon=1.0, lr=0.03, input_dims=[64], batch_size=1, n_actions=141, eps_end=0.01)
+                    self.agent = DRLMainAction(gamma=0.99, epsilon=1.0, lr=0.03, input_dims=[64], batch_size=1, n_actions=143, eps_end=0.01)
                 else:
                     self.agent = QLearn(c.SAVE_NAME, AIChessHelper)
 

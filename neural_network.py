@@ -579,7 +579,7 @@ class DRLMainAction:
 
         # Choose the appropriate elements from the batch and convert to tensors where necessary
         state_batch = torch.tensor(self.state_memory[batch]).to(self.Q_eval.device)
-        new_state_batch = torch.tensor(self.state_memory[batch]).to(self.Q_eval.device)
+        new_state_batch = torch.tensor(self.new_state_memory[batch]).to(self.Q_eval.device)
         reward_batch = torch.tensor(self.reward_memory[batch]).to(self.Q_eval.device)
         terminal_batch = torch.tensor(self.terminal_memory[batch]).to(self.Q_eval.device)
         action_batch = self.action_memory[batch]
@@ -923,7 +923,7 @@ class DRLPieceChooser:
 
         # Choose the appropriate elements from the batch and convert to tensors where necessary
         state_batch = torch.tensor(self.state_memory[batch]).to(self.Q_eval.device)
-        new_state_batch = torch.tensor(self.state_memory[batch]).to(self.Q_eval.device)
+        new_state_batch = torch.tensor(self.new_state_memory[batch]).to(self.Q_eval.device)
         reward_batch = torch.tensor(self.reward_memory[batch]).to(self.Q_eval.device)
         terminal_batch = torch.tensor(self.terminal_memory[batch]).to(self.Q_eval.device)
         action_batch = self.location_memory[batch]
