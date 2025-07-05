@@ -219,6 +219,10 @@ class GameController:
             if c.USE_NEURAL_NETWORK:
                 # Save the neural network knowledge
                 self.agent.save()
+                if c.PLAY_MODE == 2:
+                    # Plot training loss when running AIvAI mode
+                    self.agent.plot_loss()
+                    self.agent.piece_chooser.plot_loss()
             else:
                 self.agent.save_q_table()
 
